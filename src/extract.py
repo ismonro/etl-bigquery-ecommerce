@@ -10,7 +10,7 @@ def get_bigquery_client():
     """
     return bigquery.Client.from_service_account_json(
         CREDENTIALS_PATH,
-        project:=PROJECT_ID
+        project=PROJECT_ID
     )
 
 def run_query(query:str) -> pd.DataFrame:
@@ -22,10 +22,35 @@ def run_query(query:str) -> pd.DataFrame:
     df = query_job.to_dataframe()
     return df
 
-def save_raw(df: pd.DataFrame, filename = str):
+def save_raw(df: pd.DataFrame, filename:str):
     """
     Guarda un dataframe en formato parquet dentro de data/raw/
     """
     os.makedirs(DATA_RAW_DIR, exist_ok=True)
     filepath = os.path.join(DATA_RAW_DIR, filename)
+    df.to_parquet(filepath, index= False)
+    print(f'Datos guardados en {filepath}')
+
+def extract_all():
+    queries = {
+        "raw_orders.parquet": """
+            SELECT
+                order_id,
+                user_id,
+                status,
+                created_at,
+                shipped_at,
+                delivered_at,
+                num_of_item
+            FROM `bigquery-public-data.thelook_ecommerce.orders`
+            WHERE created_at >= '2023-01-01'
+        """
+    }
+
+    for filename, query in queries.items():
+        print('Ejecutando consulta para {file_name} ...')
+        df = run_query(query)
+        save_raw(df, filename)
+
+
     
