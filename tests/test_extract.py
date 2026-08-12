@@ -1,12 +1,22 @@
 from src.extract import run_query, save_raw
 
 if __name__== '__main__':
-    query = """
-        SELECT order_id, user_id
-        FROM `bigquery-public-data.thelook_ecommerce.orders`
-        LIMIT 5
-    """
+    query = {
+        "users.parquet": """
+            SELECT
+                id,
+                age,
+                gender,
+                country,
+                city,
+                traffic_source,
+                created_at
+            FROM `bigquery-public-data.thelook_ecommerce.users`
+            LIMIT 5
+        """
+    }
 
-    df = run_query(query)
-    print(df)
+    for filename, sql in query.items():
+        df = run_query(sql)
+        save_raw(df, filename)
 

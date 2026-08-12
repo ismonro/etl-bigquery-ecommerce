@@ -44,13 +44,49 @@ def extract_all():
                 num_of_item
             FROM `bigquery-public-data.thelook_ecommerce.orders`
             WHERE created_at >= '2023-01-01'
+        """,
+        "raw_order_items.parquet": """
+            SELECT
+                id,
+                order_id,
+                user_id,
+                product_id,
+                sale_price,
+                status,
+                created_at
+            FROM `bigquery-public-data.thelook_ecommerce.order_items`
+            WHERE created_at > '2023-01-01'
+        """,
+        "raw_products.parquet": """
+            SELECT
+                id,
+                category,
+                name,
+                brand,
+                cost,
+                retail_price,
+                department
+            FROM `bigquery-public-data.thelook_ecommerce.products`
+        """,
+        "raw_users.parquet": """
+            SELECT
+                id,
+                age,
+                gender,
+                country,
+                city,
+                traffic_source,
+                created_at
+            FROM `bigquery-public-data.thelook_ecommerce.users`
         """
     }
 
     for filename, query in queries.items():
-        print('Ejecutando consulta para {file_name} ...')
+        print(f"⏳ Ejecutando consulta para {filename}...")
         df = run_query(query)
         save_raw(df, filename)
 
+    print(f'Extracción de {filename} completada correctamente')
+        
 
     
