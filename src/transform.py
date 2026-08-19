@@ -25,10 +25,68 @@ def load_raw_data():
 
 
 def clean_orders(df):
-    pass
+    # Converir a fechas
+    date_cols = ['created_at', 'shipped_at', 'delivered_at']
+
+    for date in date_cols:
+        df[date] = pd.to_datetime(df[date], errors= 'coerce')
+    
+    # Eliminación de duplicados
+    df = df.drop_duplicates(subset = 'order_id', ignore_index = True)
+    # Filtrado de estados
+    valid_values = ['Complete', 'Processing', 'Shipped']
+
+    df = df[df['status'].isin(valid_values)]
+
+    # Cálculo de métricas logísticas
+    df['shipping_time_days'] = (df['shipped_at'] - df['created_at']).dt.days
+    df['delivery_time_days'] = (df['delivered_at'] - df['shipped_at']).dt.days
+    df['total_fulfillment_days'] = (df['delivered_at'] - df['created_at']).dt.days
+    # Casting de tipos
+    cast_map = {
+        'order_id': int,
+        'user_id': int,
+        'status': str,
+        'num_of_item': int
+    }
+
+    for col, dtype in cast_map.items():
+        df[col] = df[col].astype(dtype, errors = 'raise')
+
+    return df
 
 def clean_order_items(df):
-    pass
+    # Convertir fechas si las hay
+    date_cols = ['created_at']
+    for col in date_cols:
+        df[col] = pd.to_datetime(df[col], errors= 'coerce')
+
+    # Eliminar duplicados
+    df = df.drop_duplicates(subset = 'id', ignore_index = True)
+
+    # Eliminar órdenes con id_nulo
+    df = df.dropna(subset = 'order_id')
+
+    # Asegurar tipos correctos
+    cast_map = {
+        'id': int,
+        'order_id': int,
+        'user_id': int,
+        'product_id': int,
+        'sale_price': float,
+        'status': str
+    }
+
+    for col, dtype in cast_map.items():
+        df[col] = df[col].astype(dtype)
+
+    # FIltrar estados válidos
+    valid_status = ['Complete', 'Processing', 'Shipped']
+
+    df = df[df['status'].isin(valid_status)]
+
+    return df
+
 
 def clean_products(df):
     pass
@@ -46,4 +104,8 @@ def transform_all():
     pass
 
 if __name__ == '__main__':
-    load_raw_data()
+    data = load_raw_data()
+    order_items = data['order_items']
+    order_itesm_clean = clean_order_items(order_items)
+    print(order_itesm_clean.info())
+
