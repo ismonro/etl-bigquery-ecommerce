@@ -89,13 +89,92 @@ def clean_order_items(df):
 
 
 def clean_products(df):
-    pass
+    # Borrar duplicados
+    df = df.drop_duplicates(subset = ['id'], ignore_index = True)
+
+    # Asegurar tipos correctos
+    cast_map = {
+        'id': int,
+        'category': str,
+        'name': str,
+        'brand': str,
+        'cost': float,
+        'retail_price': float,
+        'department': str
+    }
+
+    for col, dtype in cast_map.items():
+        df[col] = df[col].astype(dtype)
+
+    # Filtro de valores erróneos en retail_price o costo menor que 0
+    df = df[(df['cost'] > 0) & (df['retail_price'] > 0)]
+
+    # Métricas de ayuda
+    df['margin'] = df['retail_price'] - df['cost']
+
+    return df
 
 def clean_users(df):
-    pass
+
+   # Convertir a fecha
+    col_dates = ['created_at']
+
+    for col in col_dates:
+        df[col] = pd.to_datetime(df[col], errors= 'coerce')
+
+    # Eliminar duplicados
+    df = df.drop_duplicates(subset = ['id'], ignore_index = True)
+
+    # Asegurar tipos correctos
+    cast_map = {
+        'id': int,
+        'age': int,
+        'gender': str,
+        'country': str,
+        'city': str,
+        'traffic_source': str
+    }
+
+    for col, dtype in cast_map.items():
+        df[col] = df[col].astype(dtype)
+
+ 
+    # Eliminar usuarios sin id
+    df = df.dropna(subset = ['id'])
+
+    return df
 
 def build_sales_fact(orders, order_items, products, users):
-    pass
+
+    if 'user_id' in order_items.columns:
+        order_items = order_items.drop(columns = ['user_id'])
+
+    products = products.rename(columns = {'id': 'product_id'})
+    users = users.rename(columns = {'id': 'user_id'})
+
+    fact_sales = pd.merge(
+        orders,
+        order_items,
+        how= 'inner',
+        on= 'order_id'
+    )
+
+    fact_sales = pd.merge(
+        fact_sales,
+        products,
+        how= 'inner',
+        on= 'product_id'
+    )
+
+    fact_sales = pd.merge(
+        fact_sales,
+        users,
+        how= 'inner',
+        on= 'user_id'
+    )
+
+    return fact_sales
+    
 
 def save_processed(df, filename):
     pass
@@ -105,7 +184,14 @@ def transform_all():
 
 if __name__ == '__main__':
     data = load_raw_data()
+    orders = data['orders']
     order_items = data['order_items']
-    order_itesm_clean = clean_order_items(order_items)
-    print(order_itesm_clean.info())
+    products = data['products']
+    users = data['users']
+
+    fact_sales = build_sales_fact(orders, order_items, products, users)
+    print(fact_sales.info())
+
+
+
 
