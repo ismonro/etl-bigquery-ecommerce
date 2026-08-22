@@ -87,6 +87,8 @@ def extract_all():
         save_raw(df, filename)
 
     print(f'Extracción de {filename} completada correctamente')
-        
+
+if __name__ == '__main__':
+    extract_all()
 
     

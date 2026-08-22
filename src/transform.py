@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from src.config import DATA_RAW_DIR
+from src.config import DATA_RAW_DIR, DATA_PROCESSED_DIR
 
 def load_raw_data():
     files = {
@@ -177,20 +177,66 @@ def build_sales_fact(orders, order_items, products, users):
     
 
 def save_processed(df, filename):
-    pass
+
+    # Crear carpeta si no existe
+    os.makedirs(DATA_PROCESSED_DIR, exist_ok= True)
+
+    # Ruta final
+    filepath = os.path.join(DATA_PROCESSED_DIR, filename)
+
+    # Guardar en parquet
+    df.to_parquet(path = filepath, index = False )
+
+    print(f'Datos procesados  y guardados correctamente en {filepath}')
 
 def transform_all():
-    pass
+    # Cargar los datos RAW
+    data = load_raw_data()
+
+    # Diccionario de funciones de limpieza
+    clean_funcs = {
+        'orders': clean_orders,
+        'order_items': clean_order_items,
+        'products': clean_products,
+        'users': clean_users
+    }
+
+    # Limpiar todas las tablas automáticamente
+    cleaned = {}
+
+    for name, func in clean_funcs.items():
+        cleaned[name + '_clean'] = func(data[name])
+
+    print('Tablas limpiadas correctamente')
+
+    # Contruir tabla fact
+    fact_sales = build_sales_fact(
+        cleaned['orders_clean'],
+        cleaned['order_items_clean'],
+        cleaned['products_clean'],
+        cleaned['users_clean']
+    )
+
+    print('Tabla fact_sales generadad correctamente')
+
+    # Diccionario de dataframes a guardar
+    dfs_to_save = {
+        **cleaned,
+        'fact_sales': fact_sales
+    }
+
+    # Guardar todos los dataframes automáticamente
+    for name, df in dfs_to_save.items():
+        save_processed(df, f'{name}.parquet')
+
+    print(f'Datos guardados y procesados correctamente en data/processed')
+
+    print('Transformación completa')
+    
 
 if __name__ == '__main__':
-    data = load_raw_data()
-    orders = data['orders']
-    order_items = data['order_items']
-    products = data['products']
-    users = data['users']
-
-    fact_sales = build_sales_fact(orders, order_items, products, users)
-    print(fact_sales.info())
+    transform_all()
+    
 
 
 
