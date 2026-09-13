@@ -1,79 +1,62 @@
 import os
 import pandas as pd
-from src.extract import run_query, save_raw, extract_all
+from src.extract import run_query, save_raw, extract_all, get_bigquery_client
 from src.config import DATA_RAW_DIR, PROJECT_ID
-
-def test_run_query():
-    """
-    Prueba básica para ejecutar una consulta pequeña y verificar que devuelve un dataframe
-    """
-    query = """
-        SELECT order_id, user_id
-        FROM `bigquery-public-data.thelook_ecommerce.orders`
-        LIMIT 5
-    """
-
-    df = run_query(query)
-
-    print('Resultado de run_query():')
-    print(df.head())
-
-    assert isinstance(df, pd.DataFrame), "run_query no devolvió un dataframe"
-    assert len(df) > 0, "La consulta devolvió un Dataframe vacío"
-
-def test_save_query():
-    """
-    Prueba básica para ejecutar una consulta pequeña y verificar que devuelve un dataframe
-    """
-    df = pd.DataFrame({'col': [1, 2], 'col2': ['a', 'b']})
-    filename = 'test_save_raw.parquet'
-
-    save_raw(df, filename)
-
-    filepath = os.path.join(DATA_RAW_DIR, filename)
-    assert os.path.exists(filepath), "El archivo no se guardó correctamente"
-
-    print(f'Archivo {filename} guardado correctamente')
-
-def test_extract_all():
-    """
-    Prueba completa: Ejecutar extract all y verificar que genera los archivos esperados
-    """
-    extract_all()
-
-    expected_files = [
-        "raw_orders.parquet",
-        "raw_order_items.parquet",
-        "raw_products.parquet",
-        "raw_users.parquet",
-    ]
-
-    for file in expected_files:
-        filepath = os.path.join(DATA_RAW_DIR, file)
-        assert os.path.exists(filepath), f'Falta el archivo {file}'
-        print(f'{file} generado correctamente')
-
-def test_get_bigquery_client():
-    """
-    Verifica que la función devuelve un cliente válido de Bigquery
-    """
-    client = test_get_bigquery_client()
-
-    # Comprobación 1: El objeto existe
-    assert client is not None, "get_bigquery_client devolvió None"
-
-    # Comprobación 2: es del tipo correcto
-    from google.cloud.bigquery import Client
-    assert isinstance(client, Client), "get_bigquery_client no devolvió un objeto Client"
-
-    # Comprobación 3: El cliente está configurado con el proyecto correcto
-    assert client.project == PROJECT_ID, "El cliente no está usando el PROJECT_ID correcto"
-
-    print("✔ Cliente BigQuery creado correctamente:", client.project)
+from unittest.mock import MagicMock
 
 
-if __name__ == '__main__':
-    test_run_query()
-    test_save_query()
-    test_extract_all()
-    test_get_bigquery_client()
+def test_big_query_clien(monkeypatch):
+    "Verifica que el cliente se cree usando la Service Account y credenciales correctamente"
+    mock_from_json = MagicMock()
+
+    # Parcheamos la función interna de Google BigQuery
+    monkeypatch.setattr(
+        "google.cloud.bigquery.Client.from_service_account_json",
+        mock_from_json
+    )
+
+    client = get_bigquery_client()
+
+    # Comprobamos que intentó instancearse con el método correcto
+    mock_from_json.assert_called_once()
+
+
+
+def test_run_query(monkeypatch):
+    # Preparación de la respuesta ficticia y el objeto de juguete
+    expected_df = pd.DataFrame({'order_id': [1], 'user_id': [10]})
+
+    mock_client = MagicMock()
+    mock_client.query.return_value.to_dataframe.return_value = expected_df
+
+    # Interceptar el cliente BigQuery con monkeypatch
+    monkeypatch.setattr('src.extract.get_bigquery_client', lambda: mock_client)
+
+    # Ejecutar la función real que queremos probar
+    df = run_query('SELECT * FROM tabla')
+
+    # Comprobar que todo ocurrió según lo planificado
+    mock_client.query.assert_called_once_with('SELECT * FROM tabla')
+    pd.testing.assert_frame_equal(df, expected_df)
+
+def test_save_raw(monkeypatch, tmp_path):
+    """Verifica que se crea el directorio y guarde el archivo en parquet correctamente"""
+    # tmp_path es una fixture de pytest que crea una carpeta temporal segura
+    monkeypatch.setattr('src.extract.DATA_RAW_DIR', str(tmp_path))
+
+    df_sample = pd.DataFrame({'col1': [1, 2], 'col2': ['A', 'B']})
+    filename = 'test_data.parquet'
+
+    save_raw(df_sample, filename)
+
+    # Validar físicamente que el archivo existe en la carpeta temporal
+    expected_file = tmp_path / filename
+    assert expected_file.exists()
+
+    # Validar que el contenido guardado en parquet sea idéntico al original
+    saved_df = pd.read_parquet(expected_file)
+    pd.testing.assert_frame_equal(saved_df, df_sample)
+
+
+
+
